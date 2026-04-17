@@ -51,17 +51,17 @@ Build REST APIs for a mini e-commerce system demonstrating clean backend develop
 - Includes total count, page, limit, and items for list APIs
 
 🧠 Key Features Implemented
-JWT Authentication system
-Role-based structure ready
-Soft delete for safety
-Cascade delete (category → products)
-Search across multiple fields
-Pagination + sorting
-Clean architecture (service/repository pattern)
+- JWT Authentication system
+- Role-based structure ready
+- Soft delete for safety
+- Cascade delete (category → products)
+- Search across multiple fields
+- Pagination + sorting
+- Clean architecture (service/repository pattern)
 
 📌 Future Improvements
-Role-based access control (RBAC)
-Redis for token blacklisting
-Docker setup
-Unit tests (pytest)
-API documentation enhancements
+- Role-based access control (RBAC)
+- Redis for token blacklisting
+- Docker setup
+- Unit tests (pytest)
+- API documentation enhancements
