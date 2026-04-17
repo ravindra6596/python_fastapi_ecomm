@@ -2,7 +2,7 @@
 🛒 FastAPI Mini E-commerce Backend
 
 📌 Overview
-A backend system built using FastAPI + PostgreSQL to manage products and categories with CRUD operations, filtering, pagination, sorting, soft delete, and JWT authentication.
+A backend system built using FastAPI + PostgreSQL to manage products and categories with CRUD operations, filtering, pagination, sorting, soft delete, and JWT authentication, Create logs everyday.
 
 🎯 Objective
 Build REST APIs for a mini e-commerce system demonstrating clean backend development, authentication, and structured API design.
