@@ -1,21 +1,23 @@
 import math
+from typing import Optional
 
-from sqlalchemy import asc, desc
-from sqlalchemy.orm import Session
+from sqlalchemy import asc, desc, or_, cast, String, func
+from sqlalchemy.orm import Session, joinedload
 
+from app.constants.strings import ConstStrings
+from app.model.categories_model import Category
 from app.model.products_model import Product
-from app.schemas.product_schema import ProductCreate
-from app.utils.enums import ProductSortField, SortOrder
+from app.schemas.product_schema import ProductCreate, ProductResponse
 
 
 # Create product repo
 
-def create_product_repo(db: Session, product: ProductCreate):
+def create_product_repo(db: Session, product: ProductCreate,token: dict):
     product_repo = Product(
         name=product.name,
         description=product.description,
         price=product.price,
-        category_id=product.category_id
+        category_id=product.category_id,
     )
 
     db.add(product_repo)
@@ -23,49 +25,73 @@ def create_product_repo(db: Session, product: ProductCreate):
     db.refresh(product_repo)
     return product_repo
 
-# List of products repo
+
 def get_products_repo(
     db: Session,
-    page: int,
-    limit: int,
-    search: str,
-    category_id: int,
-    min_price: float,
-    max_price: float,
-    sort_by: ProductSortField,
-    order: SortOrder
+    page: int = 1,
+    limit: int = 10,
+    search: Optional[str] = None,
+    category_id: Optional[int] = None,
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None,
+    sort_by=None,
+    order=None,
+    token: dict = None
 ):
-    query = db.query(Product).filter(
+    query = db.query(Product).options(
+        joinedload(Product.category)
+    ).filter(
         Product.is_deleted == False
     )
 
-    # search by name
+    # Search filter
     if search:
-        query = query.filter(
-            Product.name.ilike(f"%{search}%")
-        )
+        search = search.strip()
 
-    #  filter by category
-    if category_id:
+        if search.lower() in [ConstStrings.TRUE, ConstStrings.FALSE]:
+            query = query.filter(Product.is_deleted == (search.lower() == ConstStrings.TRUE))
+        else:
+            query = query.join(Category, Product.category_id == Category.id)
+            query = query.filter(
+                or_(
+                    Product.name.ilike(f"%{search}%"),
+                    Product.description.ilike(f"%{search}%"),
+                    Category.name.ilike(f"%{search}%"),  # category search
+                    cast(Product.created_at, String).ilike(f"%{search}%"),
+                    cast(Product.updated_at, String).ilike(f"%{search}%"),
+                )
+            )
+    #   FILTER BY CATEGORY
+    if category_id is not None:
         query = query.filter(Product.category_id == category_id)
 
-    # filter by price range
+    #  PRICE RANGE FILTER
     if min_price is not None:
         query = query.filter(Product.price >= min_price)
 
     if max_price is not None:
         query = query.filter(Product.price <= max_price)
 
-    # sorting
-    sort_column = getattr(Product, sort_by.value, Product.id)
+    #  COUNT (remove ORDER BY issue)
+    total = query.order_by(None).count()
 
-    if order == "asc":
+    #   SORTING (Enum safe)
+    # sort_column = getattr(Product, sort_by.value, Product.id)
+    sort_column = getattr(Product, sort_by, None)
+    try:
+        column_type = sort_column.property.columns[0].type
+        if isinstance(column_type, String):
+            sort_column = func.lower(sort_column)
+    except Exception:
+        pass
+
+    if order.value == ConstStrings.ASCENDING:
         query = query.order_by(asc(sort_column))
     else:
         query = query.order_by(desc(sort_column))
 
-    # pagination
-    total = query.count()
+    #  PAGINATION
+    total_pages = math.ceil(total / limit)
     offset = (page - 1) * limit
 
     items = query.offset(offset).limit(limit).all()
@@ -75,22 +101,43 @@ def get_products_repo(
         "total": total,
         "page": page,
         "limit": limit,
+        "total_pages": total_pages,
+        "is_previous": page > 1,
+        "is_next": page < total_pages,
         "items": items
     }
 
 # get product by id
-def get_product_by_id_repo(db: Session,  id: int):
-    return db.query(Product).filter(
-        Product.id ==  id,
+def get_product_by_id_repo(db, id, token):
+    product = db.query(Product).options(
+        joinedload(Product.category)
+    ).filter(
+        Product.id == id,
         Product.is_deleted == False
     ).first()
+
+    if not product:
+        return None
+
+    return ProductResponse(
+    id=product.id,
+    name=product.name,
+    description=product.description,
+    price=product.price,
+    category_id=product.category_id,
+    category_name=product.category.name if product.category else None,
+    is_deleted=product.is_deleted,
+    deleted_by=product.deleted_by,
+    created_at=product.created_at,
+    updated_at=product.updated_at
+)
 
 
 # Update product
 def update_product_repo(
     db,
     id: int,
-    product_data,
+    product_data,token: dict
 ):
     product = db.query(Product).filter(
         Product.id == id
@@ -112,7 +159,7 @@ def update_product_repo(
     return product
 
 # soft delete product
-def soft_delete_product_repo(db, id: int):
+def soft_delete_product_repo(db, id: int,token: dict):
     product = db.query(Product).filter(
         Product.id == id,
         Product.is_deleted == False
@@ -127,3 +174,16 @@ def soft_delete_product_repo(db, id: int):
     db.refresh(product)
 
     return product
+
+def create_products_bulk_repo(db: Session, products: list[Product],token: dict):
+    db.add_all(products)
+    db.commit()
+
+    for p in products:
+        db.refresh(p)
+
+    return products
+
+
+def get_valid_category_ids_repo(db: Session):
+    return {c.id for c in db.query(Category.id).all()}

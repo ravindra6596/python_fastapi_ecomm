@@ -4,6 +4,7 @@ from fastapi import Request, HTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.constants.strings import ConstStrings
 from app.schemas.response_schema import CustomResponse
 
 
@@ -11,13 +12,12 @@ async def global_exception_handler(
         request: Request,
         exc: Exception
 ):
-    print("Exception:", str(exc))
     traceback.print_exc()
     return JSONResponse(
         status_code=500,
         content=CustomResponse.error_response(
             statusCode=500,
-            message="Internal Server Error",
+            message=ConstStrings.INTERNAL_SERVER_ERROR,
             error=str(exc),
             data={}
         )
@@ -48,7 +48,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         status_code=422,
         content=CustomResponse.error_response(
             statusCode=422,
-            message="Validation Error",
+            message=ConstStrings.VALIDATION_ERROR,
             error=errors,
             data={}
         )

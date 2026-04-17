@@ -1,16 +1,16 @@
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, func
+from sqlalchemy import Column, Integer, String, DateTime, func, Boolean
 
 from app.constants.strings import ConstStrings
 from app.database.connection import Base
 
 
-class Category(Base):
-    __tablename__ = ConstStrings.CATEGORIES_TABLE
+class User(Base):
+    __tablename__ = ConstStrings.USER_TABLE
 
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
-    name = Column(String, nullable=False,unique=True)
-    is_deleted = Column(Boolean, default=False)
-    deleted_by = Column(Integer, nullable=True)
+    email = Column(String(150), unique=True, nullable=False, index=True)
+    password = Column(String(255), nullable=False, index=True)
+    is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(
         DateTime(timezone=True),
